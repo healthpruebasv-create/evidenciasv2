@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Envío de Evidencias Fotográficas</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Registro de Evidencias</h2>
+    
+    <form id="formEvidencias" class="space-y-6">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del Operador / Usuario</label>
+        <input type="text" id="usuario" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej. Juan Pérez">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="border border-dashed border-gray-300 p-4 rounded-lg flex flex-col items-center justify-center bg-gray-50">
+          <label class="text-xs font-bold text-gray-500 uppercase mb-2">Evidencia 1</label>
+          <input type="file" accept="image/*" class="foto-input text-sm w-full" required>
+          <div class="preview mt-2 hidden text-xs text-green-600 font-medium">✓ Imagen cargada</div>
+        </div>
+        <div class="border border-dashed border-gray-300 p-4 rounded-lg flex flex-col items-center justify-center bg-gray-50">
+          <label class="text-xs font-bold text-gray-500 uppercase mb-2">Evidencia 2</label>
+          <input type="file" accept="image/*" class="foto-input text-sm w-full" required>
+          <div class="preview mt-2 hidden text-xs text-green-600 font-medium">✓ Imagen cargada</div>
+        </div>
+        <div class="border border-dashed border-gray-300 p-4 rounded-lg flex flex-col items-center justify-center bg-gray-50">
+          <label class="text-xs font-bold text-gray-500 uppercase mb-2">Evidencia 3</label>
+          <input type="file" accept="image/*" class="foto-input text-sm w-full" required>
+          <div class="preview mt-2 hidden text-xs text-green-600 font-medium">✓ Imagen cargada</div>
+        </div>
+        <div class="border border-dashed border-gray-300 p-4 rounded-lg flex flex-col items-center justify-center bg-gray-50">
+          <label class="text-xs font-bold text-gray-500 uppercase mb-2">Evidencia 4</label>
+          <input type="file" accept="image/*" class="foto-input text-sm w-full" required>
+          <div class="preview mt-2 hidden text-xs text-green-600 font-medium">✓ Imagen cargada</div>
+        </div>
+      </div>
+
+      <div class="pt-4">
+        <button type="submit" id="btnEnviar" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 cursor-pointer disabled:bg-gray-400">
+          Enviar Evidencias
+        </button>
+        <p id="estado" class="text-center mt-3 text-sm font-medium hidden"></p>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // URL DE TU WEB APP DE GOOGLE APPS SCRIPT
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwFeN64yl0Yu4p4oH1rKjJFx4pVnCP8UuCUGRfMEyKXX3-Ecx1qc593LqGsxJMgT6WB3g/exec";
+
+    const form = document.getElementById('formEvidencias');
+    const inputs = document.querySelectorAll('.foto-input');
+    const btnEnviar = document.getElementById('btnEnviar');
+    const estado = document.getElementById('estado');
+
+    // Mostrar confirmación visual cuando se selecciona una foto
+    inputs.forEach(input => {
+      input.addEventListener('change', function() {
+        const preview = this.nextElementSibling;
+        if (this.files && this.files[0]) {
+          preview.classList.remove('hidden');
+        } else {
+          preview.classList.add('hidden');
+        }
+      });
+    });
+
+    // Función auxiliar para convertir archivo a Base64 de forma asíncrona
+    const aBase64 = file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+
+    // Manejar el envío del formulario
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      btnEnviar.disabled = true;
+      estado.textContent = "Procesando imágenes y enviando... por favor espera.";
+      estado.className = "text-center mt-3 text-sm font-medium text-blue-600";
+      estado.classList.remove('hidden');
+
+      try {
+        const listaImagenes = [];
+        const usuario = document.getElementById('usuario').value;
+
+        // Procesar las 4 fotos secuencialmente
+        for (let i = 0; i < inputs.length; i++) {
+          const file = inputs[i].files[0];
+          const base64String = await aBase64(file);
+          
+          listaImagenes.push({
+            nombre: `Evidencia_${i+1}_${Date.now()}.jpg`,
+            tipo: file.type,
+            base64: base64String
+          });
+        }
+
+        // Construir el JSON estructurado
+        const payload = {
+          usuario: usuario,
+          imagenes: listaImagenes
+        };
+
+        // Enviar mediante fetch POST a Google Apps Script
+        const respuesta = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Evita problemas estrictos de CORS en navegadores
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        // Al usar 'no-cors' la respuesta viene opaca, asumimos éxito si no hay error en el bloque
+        estado.textContent = "¡Evidencias enviadas correctamente a Google Sheets!";
+        estado.className = "text-center mt-3 text-sm font-medium text-green-600";
+        form.reset();
+        document.querySelectorAll('.preview').forEach(p => p.classList.add('hidden'));
+
+      } catch (error) {
+        console.error(error);
+        estado.textContent = "Hubo un error al enviar las evidencias.";
+        estado.className = "text-center mt-3 text-sm font-medium text-red-600";
+      } finally {
+        btnEnviar.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
